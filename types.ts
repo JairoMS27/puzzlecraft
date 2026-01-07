@@ -32,6 +32,7 @@ export interface Piece {
   currentX: number;
   currentY: number;
   solved: boolean;
+  groupId: number; // Pieces with the same groupId move together
   shape: {
     top: number;
     right: number;
