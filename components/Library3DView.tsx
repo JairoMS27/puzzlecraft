@@ -199,9 +199,11 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
         <meshStandardMaterial
           attach="material-4"
           map={texture}
-          roughness={0.6}
-          emissive={hovered || isSelected ? "#222222" : "#000000"}
-          emissiveIntensity={hovered || isSelected ? 0.3 : 0}
+          roughness={0.3}
+          metalness={0}
+          emissive="#ffffff"
+          emissiveIntensity={hovered || isSelected ? 0.4 : 0.2}
+          emissiveMap={texture}
         />
         {/* Back */}
         <meshStandardMaterial attach="material-5" color="#111111" roughness={0.9} />
@@ -293,7 +295,7 @@ const LibraryScene: React.FC<{
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.25} />
+      <ambientLight intensity={0.8} />
       <spotLight
         position={[0, 12, 10]}
         angle={0.35}
@@ -302,10 +304,13 @@ const LibraryScene: React.FC<{
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
+      {/* Front fill light to illuminate puzzle faces */}
+      <directionalLight position={[0, 2, 8]} intensity={1.2} color="#ffffff" />
+
       {/* Accent lights for atmosphere */}
-      <pointLight position={[-8, 4, 5]} intensity={0.5} color="#ff6b35" />
-      <pointLight position={[8, 4, 5]} intensity={0.5} color="#3b82f6" />
-      <pointLight position={[0, -1, 6]} intensity={0.3} color="#8b5cf6" />
+      <pointLight position={[-8, 4, 5]} intensity={0.6} color="#ff6b35" />
+      <pointLight position={[8, 4, 5]} intensity={0.6} color="#3b82f6" />
+      <pointLight position={[0, -1, 6]} intensity={0.4} color="#8b5cf6" />
 
       {/* Dynamic spotlight for selected item */}
       {selectedId && (
@@ -530,8 +535,8 @@ const Library3DView: React.FC<Library3DViewProps> = ({ history, onSelect, onBack
         shadows
         dpr={[1, 2]}
       >
-        <color attach="background" args={['#050505']} />
-        <fog attach="fog" args={['#050505', 8, 25]} />
+        <color attach="background" args={['#0a0a0a']} />
+        <fog attach="fog" args={['#0a0a0a', 15, 35]} />
 
         <LibraryScene
           puzzles={history}
