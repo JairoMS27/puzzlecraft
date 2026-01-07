@@ -21,6 +21,7 @@ const GameView: React.FC<GameViewProps> = ({ imageUrl, difficulty, onReset }) =>
   
   // Game constants
   const SNAP_DISTANCE = 20;
+  const PIECE_SNAP_DISTANCE = 25; // Distance for pieces to snap together
 
   // Initialize puzzle
   useEffect(() => {
@@ -64,6 +65,7 @@ const GameView: React.FC<GameViewProps> = ({ imageUrl, difficulty, onReset }) =>
         currentX: randX,
         currentY: randY,
         solved: false,
+        groupId: index, // Each piece starts in its own group
         shape: shape,
         width: finalW,
         height: finalH
@@ -171,6 +173,84 @@ const GameView: React.FC<GameViewProps> = ({ imageUrl, difficulty, onReset }) =>
   }, [pieces, image, selectedPieceId, difficulty, isComplete, screenshotUrl]);
 
 
+  // Check if two pieces are neighbors in the puzzle grid
+  const areNeighbors = (p1: Piece, p2: Piece): 'top' | 'right' | 'bottom' | 'left' | null => {
+    const rowDiff = p1.correctRow - p2.correctRow;
+    const colDiff = p1.correctCol - p2.correctCol;
+
+    if (rowDiff === -1 && colDiff === 0) return 'bottom'; // p2 is below p1
+    if (rowDiff === 1 && colDiff === 0) return 'top';     // p2 is above p1
+    if (rowDiff === 0 && colDiff === -1) return 'right';  // p2 is to the right of p1
+    if (rowDiff === 0 && colDiff === 1) return 'left';    // p2 is to the left of p1
+    return null;
+  };
+
+  // Calculate where p2 should be relative to p1 for a perfect connection
+  const getExpectedPosition = (p1: Piece, direction: 'top' | 'right' | 'bottom' | 'left'): { x: number; y: number } => {
+    switch (direction) {
+      case 'top':
+        return { x: p1.currentX, y: p1.currentY - p1.height };
+      case 'bottom':
+        return { x: p1.currentX, y: p1.currentY + p1.height };
+      case 'left':
+        return { x: p1.currentX - p1.width, y: p1.currentY };
+      case 'right':
+        return { x: p1.currentX + p1.width, y: p1.currentY };
+    }
+  };
+
+  // Find all pieces that can be snapped to the moved piece/group
+  const findSnapCandidates = (movedPieces: Piece[], allPieces: Piece[]): { piece: Piece; target: Piece; direction: 'top' | 'right' | 'bottom' | 'left'; expectedPos: { x: number; y: number } }[] => {
+    const candidates: { piece: Piece; target: Piece; direction: 'top' | 'right' | 'bottom' | 'left'; expectedPos: { x: number; y: number } }[] = [];
+
+    for (const movedPiece of movedPieces) {
+      for (const otherPiece of allPieces) {
+        // Skip if same group or solved
+        if (otherPiece.groupId === movedPiece.groupId) continue;
+        if (otherPiece.solved) continue;
+
+        const direction = areNeighbors(movedPiece, otherPiece);
+        if (direction) {
+          const expectedPos = getExpectedPosition(movedPiece, direction);
+          const dist = Math.hypot(otherPiece.currentX - expectedPos.x, otherPiece.currentY - expectedPos.y);
+
+          if (dist < PIECE_SNAP_DISTANCE) {
+            candidates.push({ piece: otherPiece, target: movedPiece, direction, expectedPos });
+          }
+        }
+      }
+    }
+
+    return candidates;
+  };
+
+  // Merge two groups: move all pieces from oldGroupId to newGroupId and snap them
+  const mergeGroups = (
+    allPieces: Piece[],
+    targetGroupId: number,
+    sourceGroupId: number,
+    anchorPiece: Piece, // The piece from source group that connects
+    connectionPiece: Piece, // The piece from target group it connects to
+    direction: 'top' | 'right' | 'bottom' | 'left'
+  ): Piece[] => {
+    // Calculate where the anchor piece should be
+    const expectedPos = getExpectedPosition(connectionPiece, direction);
+    const deltaX = expectedPos.x - anchorPiece.currentX;
+    const deltaY = expectedPos.y - anchorPiece.currentY;
+
+    return allPieces.map(p => {
+      if (p.groupId === sourceGroupId) {
+        return {
+          ...p,
+          groupId: targetGroupId,
+          currentX: p.currentX + deltaX,
+          currentY: p.currentY + deltaY
+        };
+      }
+      return p;
+    });
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     if (isComplete) return;
     const canvas = canvasRef.current;
@@ -197,10 +277,10 @@ const GameView: React.FC<GameViewProps> = ({ imageUrl, difficulty, onReset }) =>
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (selectedPieceId === null) return;
-    
+
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
+
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -208,39 +288,84 @@ const GameView: React.FC<GameViewProps> = ({ imageUrl, difficulty, onReset }) =>
     const newX = x - dragOffset.x;
     const newY = y - dragOffset.y;
 
-    setPieces(prev => prev.map(p => {
-        if (p.id === selectedPieceId) {
-            return { ...p, currentX: newX, currentY: newY };
+    setPieces(prev => {
+      const selectedPiece = prev.find(p => p.id === selectedPieceId);
+      if (!selectedPiece) return prev;
+
+      const deltaX = newX - selectedPiece.currentX;
+      const deltaY = newY - selectedPiece.currentY;
+      const groupId = selectedPiece.groupId;
+
+      // Move all pieces in the same group
+      return prev.map(p => {
+        if (p.groupId === groupId) {
+          return { ...p, currentX: p.currentX + deltaX, currentY: p.currentY + deltaY };
         }
         return p;
-    }));
+      });
+    });
   };
 
   const handleMouseUp = () => {
     if (selectedPieceId === null) return;
-    
+
     const piece = pieces.find(p => p.id === selectedPieceId);
-    if (piece) {
-        const { rows, cols } = calculateGrid(difficulty);
-        const canvas = canvasRef.current!;
-        const totalW = piece.width * cols;
-        const totalH = piece.height * rows;
-        const boardStartX = (canvas.width - totalW) / 2;
-        const boardStartY = (canvas.height - totalH) / 2;
-        
-        const targetX = boardStartX + piece.correctCol * piece.width;
-        const targetY = boardStartY + piece.correctRow * piece.height;
-        
-        const dist = Math.hypot(piece.currentX - targetX, piece.currentY - targetY);
-        
-        if (dist < SNAP_DISTANCE) {
-            setPieces(prev => prev.map(p => {
-                if (p.id === selectedPieceId) {
-                    return { ...p, currentX: targetX, currentY: targetY, solved: true };
-                }
-                return p;
-            }));
-        }
+    if (!piece) {
+      setSelectedPieceId(null);
+      return;
+    }
+
+    const { rows, cols } = calculateGrid(difficulty);
+    const canvas = canvasRef.current!;
+    const totalW = piece.width * cols;
+    const totalH = piece.height * rows;
+    const boardStartX = (canvas.width - totalW) / 2;
+    const boardStartY = (canvas.height - totalH) / 2;
+
+    // Get all pieces in the current group
+    const groupPieces = pieces.filter(p => p.groupId === piece.groupId);
+
+    // First, try to snap to board (check if any piece in the group is close to its target)
+    let snappedToBoard = false;
+    for (const gp of groupPieces) {
+      const targetX = boardStartX + gp.correctCol * gp.width;
+      const targetY = boardStartY + gp.correctRow * gp.height;
+      const dist = Math.hypot(gp.currentX - targetX, gp.currentY - targetY);
+
+      if (dist < SNAP_DISTANCE) {
+        // Calculate offset to snap the entire group
+        const deltaX = targetX - gp.currentX;
+        const deltaY = targetY - gp.currentY;
+
+        setPieces(prev => prev.map(p => {
+          if (p.groupId === piece.groupId) {
+            return {
+              ...p,
+              currentX: p.currentX + deltaX,
+              currentY: p.currentY + deltaY,
+              solved: true
+            };
+          }
+          return p;
+        }));
+        snappedToBoard = true;
+        break;
+      }
+    }
+
+    // If not snapped to board, try to snap to other pieces
+    if (!snappedToBoard) {
+      const snapCandidates = findSnapCandidates(groupPieces, pieces);
+
+      if (snapCandidates.length > 0) {
+        // Take the first candidate and merge groups
+        const { piece: otherPiece, target: targetPiece, direction } = snapCandidates[0];
+
+        setPieces(prev => {
+          // We want to merge the "other" group into "our" group
+          return mergeGroups(prev, piece.groupId, otherPiece.groupId, otherPiece, targetPiece, direction);
+        });
+      }
     }
 
     setSelectedPieceId(null);
@@ -290,7 +415,7 @@ const GameView: React.FC<GameViewProps> = ({ imageUrl, difficulty, onReset }) =>
       
       <div className="absolute top-6 left-6 pointer-events-none">
         <h2 className="text-2xl font-bold text-white tracking-widest">WORKBENCH</h2>
-        <p className="text-zinc-500">Drag pieces to the frame</p>
+        <p className="text-zinc-500">Arrastra y une las piezas</p>
       </div>
 
       <div className="absolute top-6 right-6 flex gap-2 z-50">
