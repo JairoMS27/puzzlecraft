@@ -120,7 +120,9 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
   const lidRotation = useRef(0);
 
   // Table position (where the box will go when selected)
-  const tablePosition = new THREE.Vector3(0, -0.3, 8);
+  // Table top surface is at y = -2 + 1.8 + 0.15/2 = -0.125
+  // Box center should be at table top + boxHeight/2 = -0.125 + 0.175 = 0.05
+  const tablePosition = new THREE.Vector3(0, 0.05, 8);
 
   // Load texture
   useEffect(() => {
@@ -157,7 +159,7 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
     } else {
       // Return to shelf position
       targetPosition.current.set(...position);
-      targetRotation.current.set(-0.15, 0, 0);
+      targetRotation.current.set(0, 0, 0);
       targetScale.current = 1;
       lidRotation.current += (0 - lidRotation.current) * delta * 5;
     }
@@ -194,7 +196,7 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
   const baseHeight = boxHeight - lidHeight;
 
   return (
-    <group ref={groupRef} position={position} rotation={[-0.15, 0, 0]}>
+    <group ref={groupRef} position={position} rotation={[0, 0, 0]}>
       {/* Glow lights when selected */}
       {isSelected && (
         <>
@@ -420,12 +422,14 @@ const LibraryScene: React.FC<{
       const x = -shelfWidth / 2 + stackSpacing * (stackOnShelf + 1) + xOffset;
 
       // Vertical position - stack boxes on top of each other
-      const boxHeight = 0.4; // Flat boxes like puzzle boxes
-      const baseY = shelfIndex * shelfSpacing + 0.25;
-      const y = baseY + positionInStack * (boxHeight + 0.03);
+      // Shelf top surface is at: shelfIndex * shelfSpacing - 1
+      const boxHeight = 0.35; // Match PuzzleBox dimensions
+      const shelfTopY = shelfIndex * shelfSpacing - 1;
+      const baseY = shelfTopY + boxHeight / 2 + 0.05; // Place box center above shelf top
+      const y = baseY + positionInStack * (boxHeight + 0.05);
 
-      // Small deterministic Z offset for natural look
-      const z = (seededRandom(index * 13) - 0.5) * 0.3;
+      // Small deterministic Z offset for natural look - push boxes toward front of shelf
+      const z = 0.3 + (seededRandom(index * 13) - 0.5) * 0.2;
 
       // Small rotation offset for natural stacking
       const rotationY = (seededRandom(index * 17) - 0.5) * 0.15;
