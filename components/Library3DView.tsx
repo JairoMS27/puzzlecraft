@@ -16,6 +16,7 @@ interface PuzzleBoxProps {
   position: [number, number, number];
   index: number;
   isSelected: boolean;
+  isBoxOpen: boolean;
   onSelect: () => void;
   totalInStack: number;
   boxColor: string;
@@ -95,25 +96,31 @@ const DustParticles: React.FC<{ count?: number }> = ({ count = 50 }) => {
   );
 };
 
-// Individual Puzzle Box Component
+// Individual Puzzle Box Component with opening animation
 const PuzzleBox: React.FC<PuzzleBoxProps> = ({
   puzzle,
   position,
   index,
   isSelected,
+  isBoxOpen,
   onSelect,
   totalInStack,
   boxColor
 }) => {
-  const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const baseRef = useRef<THREE.Mesh>(null);
+  const lidRef = useRef<THREE.Group>(null);
   const [hovered, setHovered] = useState(false);
   const [texture, setTexture] = useState<THREE.Texture | null>(null);
 
-  // Target positions for animation
+  // Animation state
   const targetPosition = useRef(new THREE.Vector3(...position));
   const targetRotation = useRef(new THREE.Euler(0, 0, 0));
   const targetScale = useRef(1);
+  const lidRotation = useRef(0);
+
+  // Table position (where the box will go when selected)
+  const tablePosition = new THREE.Vector3(0, -0.3, 8);
 
   // Load texture
   useEffect(() => {
@@ -126,36 +133,36 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
       },
       undefined,
       () => {
-        // On error, load placeholder
         loader.load(PLACEHOLDER_TEXTURE, setTexture);
       }
     );
   }, [puzzle.imageUrl]);
 
-  // Animation for selection
+  // Animation for selection and box opening
   useFrame((state, delta) => {
     if (!groupRef.current) return;
 
     const time = state.clock.elapsedTime;
 
     if (isSelected) {
-      // Move to center front position with floating effect - tilted up to show image
-      targetPosition.current.set(0, 2.5 + Math.sin(time * 1.5) * 0.08, 6);
-      // Tilt the box up to face camera when selected
-      targetRotation.current.set(
-        -1.2 + Math.sin(time * 0.8) * 0.03, // Tilted up to show front face
-        Math.sin(time * 0.5) * 0.05,
-        0
-      );
-      targetScale.current = 1.8;
+      // Move to table position
+      targetPosition.current.copy(tablePosition);
+      targetRotation.current.set(0, 0, 0);
+      targetScale.current = 1.5;
+
+      // Open the lid when isBoxOpen is true
+      if (isBoxOpen) {
+        lidRotation.current += (Math.PI * 0.75 - lidRotation.current) * delta * 3;
+      }
     } else {
-      // Return to shelf position - flat on shelf, slightly tilted toward viewer
+      // Return to shelf position
       targetPosition.current.set(...position);
-      targetRotation.current.set(-0.3, 0, 0);
+      targetRotation.current.set(-0.15, 0, 0);
       targetScale.current = 1;
+      lidRotation.current += (0 - lidRotation.current) * delta * 5;
     }
 
-    // Smooth interpolation - faster for selection
+    // Smooth interpolation
     const lerpSpeed = isSelected ? 4 : 5;
     groupRef.current.position.lerp(targetPosition.current, delta * lerpSpeed);
 
@@ -166,34 +173,40 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
     const newScale = currentScale + (targetScale.current - currentScale) * delta * 5;
     groupRef.current.scale.setScalar(newScale);
 
+    // Animate lid opening
+    if (lidRef.current) {
+      lidRef.current.rotation.x = -lidRotation.current;
+    }
+
     // Hover float effect when not selected
-    if (!isSelected && meshRef.current && hovered) {
-      meshRef.current.position.y = Math.sin(time * 3) * 0.05;
-      meshRef.current.position.z = Math.sin(time * 2) * 0.02;
-    } else if (meshRef.current && !isSelected) {
-      meshRef.current.position.y *= 0.9;
-      meshRef.current.position.z *= 0.9;
+    if (!isSelected && baseRef.current && hovered) {
+      baseRef.current.position.y = Math.sin(time * 3) * 0.03;
+    } else if (baseRef.current && !isSelected) {
+      baseRef.current.position.y *= 0.9;
     }
   });
 
-  // Flat puzzle box dimensions (lying flat, stacked)
+  // Box dimensions
   const boxWidth = 2.8;
-  const boxHeight = 0.35; // Flat like real puzzle boxes
+  const boxHeight = 0.35;
   const boxDepth = 2.2;
+  const lidHeight = 0.08;
+  const baseHeight = boxHeight - lidHeight;
 
   return (
-    <group ref={groupRef} position={position} rotation={[-0.3, 0, 0]}>
-      {/* Glow lights when selected - multiple for dramatic effect */}
+    <group ref={groupRef} position={position} rotation={[-0.15, 0, 0]}>
+      {/* Glow lights when selected */}
       {isSelected && (
         <>
-          <pointLight position={[0, 1, 1.5]} color="#ffffff" intensity={3} distance={10} />
-          <pointLight position={[-1.5, 0.5, 1]} color="#6366f1" intensity={1.5} distance={5} />
-          <pointLight position={[1.5, 0.5, 1]} color="#ec4899" intensity={1.5} distance={5} />
+          <pointLight position={[0, 2, 1]} color="#ffffff" intensity={4} distance={12} />
+          <pointLight position={[-2, 1, 1]} color="#ffd700" intensity={2} distance={6} />
+          <pointLight position={[2, 1, 1]} color="#ffd700" intensity={2} distance={6} />
         </>
       )}
 
+      {/* Box Base (bottom part) */}
       <mesh
-        ref={meshRef}
+        ref={baseRef}
         onClick={(e) => {
           e.stopPropagation();
           onSelect();
@@ -207,30 +220,50 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
           document.body.style.cursor = 'auto';
           setHovered(false);
         }}
+        position={[0, baseHeight / 2, 0]}
       >
-        <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
-
-        {/* Right */}
-        <meshStandardMaterial attach="material-0" color={boxColor} roughness={0.6} />
-        {/* Left */}
-        <meshStandardMaterial attach="material-1" color={boxColor} roughness={0.6} />
-        {/* Top */}
-        <meshStandardMaterial attach="material-2" color={boxColor} roughness={0.5} />
-        {/* Bottom */}
-        <meshStandardMaterial attach="material-3" color={boxColor} roughness={0.7} />
-        {/* Front - The Image */}
-        <meshStandardMaterial
-          attach="material-4"
-          map={texture}
-          roughness={0.3}
-          metalness={0}
-          emissive="#ffffff"
-          emissiveIntensity={hovered || isSelected ? 0.5 : 0.3}
-          emissiveMap={texture}
-        />
-        {/* Back */}
-        <meshStandardMaterial attach="material-5" color={boxColor} roughness={0.6} />
+        <boxGeometry args={[boxWidth, baseHeight, boxDepth]} />
+        <meshStandardMaterial color={boxColor} roughness={0.6} />
       </mesh>
+
+      {/* Box Lid (top part that opens) - pivots from back edge */}
+      <group
+        ref={lidRef}
+        position={[0, baseHeight, -boxDepth / 2]}
+      >
+        <mesh position={[0, lidHeight / 2, boxDepth / 2]}>
+          <boxGeometry args={[boxWidth, lidHeight, boxDepth]} />
+          {/* Multi-material for lid */}
+          <meshStandardMaterial attach="material-0" color={boxColor} roughness={0.6} />
+          <meshStandardMaterial attach="material-1" color={boxColor} roughness={0.6} />
+          {/* Top of lid - shows puzzle image */}
+          <meshStandardMaterial
+            attach="material-2"
+            map={texture}
+            roughness={0.3}
+            emissive="#ffffff"
+            emissiveIntensity={hovered || isSelected ? 0.4 : 0.2}
+            emissiveMap={texture}
+          />
+          <meshStandardMaterial attach="material-3" color={boxColor} roughness={0.7} />
+          <meshStandardMaterial attach="material-4" color={boxColor} roughness={0.6} />
+          <meshStandardMaterial attach="material-5" color={boxColor} roughness={0.6} />
+        </mesh>
+      </group>
+
+      {/* Image inside the box (visible when opened) */}
+      {isBoxOpen && (
+        <mesh position={[0, baseHeight - 0.01, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[boxWidth * 0.9, boxDepth * 0.9]} />
+          <meshStandardMaterial
+            map={texture}
+            roughness={0.4}
+            emissive="#ffffff"
+            emissiveIntensity={0.3}
+            emissiveMap={texture}
+          />
+        </mesh>
+      )}
 
       {/* Hover indicator */}
       {hovered && !isSelected && (
@@ -291,13 +324,58 @@ const SidePanel: React.FC<{ x: number; height: number }> = ({ x, height }) => {
   );
 };
 
+// Wooden Table for displaying selected puzzle
+const WoodenTable: React.FC = () => {
+  const tableWidth = 6;
+  const tableDepth = 4;
+  const tableHeight = 0.15;
+  const legHeight = 1.8;
+  const legSize = 0.2;
+
+  return (
+    <group position={[0, -2, 8]}>
+      {/* Table top */}
+      <mesh position={[0, legHeight, 0]}>
+        <boxGeometry args={[tableWidth, tableHeight, tableDepth]} />
+        <meshStandardMaterial color="#a07850" roughness={0.6} metalness={0.05} />
+      </mesh>
+
+      {/* Table top edge detail */}
+      <mesh position={[0, legHeight - 0.08, tableDepth / 2 - 0.1]}>
+        <boxGeometry args={[tableWidth + 0.1, 0.08, 0.15]} />
+        <meshStandardMaterial color="#8b6914" roughness={0.65} />
+      </mesh>
+
+      {/* Table legs */}
+      {[
+        [-tableWidth / 2 + 0.3, -tableDepth / 2 + 0.3],
+        [tableWidth / 2 - 0.3, -tableDepth / 2 + 0.3],
+        [-tableWidth / 2 + 0.3, tableDepth / 2 - 0.3],
+        [tableWidth / 2 - 0.3, tableDepth / 2 - 0.3],
+      ].map(([x, z], i) => (
+        <mesh key={i} position={[x, legHeight / 2, z]}>
+          <boxGeometry args={[legSize, legHeight, legSize]} />
+          <meshStandardMaterial color="#6b5344" roughness={0.7} />
+        </mesh>
+      ))}
+
+      {/* Cross beam under table */}
+      <mesh position={[0, legHeight * 0.3, 0]}>
+        <boxGeometry args={[tableWidth - 1, 0.1, 0.1]} />
+        <meshStandardMaterial color="#6b5344" roughness={0.7} />
+      </mesh>
+    </group>
+  );
+};
+
 // Main 3D Scene
 const LibraryScene: React.FC<{
   puzzles: SavedPuzzle[];
   selectedId: string | null;
+  isBoxOpen: boolean;
   onSelectPuzzle: (id: string) => void;
   onClose: () => void;
-}> = ({ puzzles, selectedId, onSelectPuzzle, onClose }) => {
+}> = ({ puzzles, selectedId, isBoxOpen, onSelectPuzzle, onClose }) => {
   const { camera } = useThree();
 
   // Calculate layout - create stacks of boxes like the reference image
@@ -311,13 +389,15 @@ const LibraryScene: React.FC<{
   const totalStacks = Math.ceil(puzzles.length / maxBoxesPerStack);
   const shelfCount = Math.ceil(totalStacks / stacksPerShelf) || 1;
 
-  // Camera animation for selection
+  // Camera animation for selection - move to look at table
   useFrame((state, delta) => {
-    const targetZ = selectedId ? 9 : 12;
-    const targetY = selectedId ? 2 : 3;
+    const targetZ = selectedId ? 14 : 12;
+    const targetY = selectedId ? 1.5 : 3;
+    const targetX = 0;
 
-    camera.position.z += (targetZ - camera.position.z) * delta * 3;
-    camera.position.y += (targetY - camera.position.y) * delta * 3;
+    camera.position.z += (targetZ - camera.position.z) * delta * 2.5;
+    camera.position.y += (targetY - camera.position.y) * delta * 2.5;
+    camera.position.x += (targetX - camera.position.x) * delta * 2.5;
   });
 
   // Calculate positions for stacked boxes - using useMemo to avoid recalculation
@@ -416,6 +496,7 @@ const LibraryScene: React.FC<{
               position={position}
               index={index}
               isSelected={selectedId === puzzle.id}
+              isBoxOpen={selectedId === puzzle.id && isBoxOpen}
               onSelect={() => onSelectPuzzle(puzzle.id)}
               totalInStack={Math.min(maxBoxesPerStack, puzzles.length - stackIndex * maxBoxesPerStack)}
               boxColor={boxColor}
@@ -424,9 +505,12 @@ const LibraryScene: React.FC<{
         })}
       </Suspense>
 
+      {/* Wooden Table in front of shelves */}
+      <WoodenTable />
+
       {/* Floor - warm wood floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 2]}>
-        <planeGeometry args={[25, 18]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 4]}>
+        <planeGeometry args={[30, 25]} />
         <meshStandardMaterial color="#3d3022" roughness={0.8} />
       </mesh>
 
@@ -552,8 +636,27 @@ const EmptyState: React.FC<{ onBack: () => void }> = ({ onBack }) => {
 // Main Component
 const Library3DView: React.FC<Library3DViewProps> = ({ history, onSelect, onBack }) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isBoxOpen, setIsBoxOpen] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   const selectedPuzzle = history.find(p => p.id === selectedId);
+
+  // Handle selection - move to table, then open box, then show menu
+  const handleSelectPuzzle = (id: string) => {
+    setSelectedId(id);
+    setIsBoxOpen(false);
+    setShowMenu(false);
+
+    // After box reaches table, open the lid
+    setTimeout(() => {
+      setIsBoxOpen(true);
+    }, 800);
+
+    // After lid opens, show the menu
+    setTimeout(() => {
+      setShowMenu(true);
+    }, 1600);
+  };
 
   const handlePlay = (difficulty: Difficulty) => {
     if (selectedPuzzle) {
@@ -565,7 +668,11 @@ const Library3DView: React.FC<Library3DViewProps> = ({ history, onSelect, onBack
   };
 
   const handleClose = () => {
-    setSelectedId(null);
+    setShowMenu(false);
+    setIsBoxOpen(false);
+    setTimeout(() => {
+      setSelectedId(null);
+    }, 300);
   };
 
   if (history.length === 0) {
@@ -600,7 +707,8 @@ const Library3DView: React.FC<Library3DViewProps> = ({ history, onSelect, onBack
         <LibraryScene
           puzzles={history}
           selectedId={selectedId}
-          onSelectPuzzle={setSelectedId}
+          isBoxOpen={isBoxOpen}
+          onSelectPuzzle={handleSelectPuzzle}
           onClose={handleClose}
         />
 
@@ -614,8 +722,8 @@ const Library3DView: React.FC<Library3DViewProps> = ({ history, onSelect, onBack
         />
       </Canvas>
 
-      {/* Difficulty selector overlay */}
-      {selectedPuzzle && (
+      {/* Difficulty selector overlay - shows after box opens on table */}
+      {selectedPuzzle && showMenu && (
         <DifficultySelector
           puzzle={selectedPuzzle}
           onPlay={handlePlay}
