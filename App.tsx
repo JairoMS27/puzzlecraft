@@ -4,7 +4,7 @@ import UploadView from './components/UploadView';
 import ShelfView from './components/ShelfView';
 import Box3DView from './components/Box3DView';
 import GameView from './components/GameView';
-import LibraryView from './components/LibraryView';
+import Library3DView from './components/Library3DView';
 import Footer from './components/Footer';
 import { getPuzzleHistory, savePuzzleToHistory } from './utils/storageUtils';
 
@@ -56,10 +56,10 @@ const App: React.FC = () => {
       )}
 
       {state === AppState.LIBRARY && (
-        <LibraryView 
-          history={history} 
-          onSelect={handleSelectFromLibrary} 
-          onBack={() => setState(AppState.UPLOAD)} 
+        <Library3DView
+          history={history}
+          onSelect={handleSelectFromLibrary}
+          onBack={() => setState(AppState.UPLOAD)}
         />
       )}
 
