@@ -18,7 +18,28 @@ interface PuzzleBoxProps {
   isSelected: boolean;
   onSelect: () => void;
   totalInStack: number;
+  boxColor: string;
 }
+
+// Array of colorful box colors like the reference image
+const BOX_COLORS = [
+  '#e8b4b8', // Dusty pink
+  '#7cc6c6', // Teal
+  '#f5e6d3', // Cream/beige
+  '#4a90a4', // Steel blue
+  '#d4a574', // Tan/camel
+  '#b8d4e3', // Light blue
+  '#e6c9d4', // Rose pink
+  '#8fbc8f', // Sage green
+  '#deb887', // Burlywood
+  '#87ceeb', // Sky blue
+  '#f0e68c', // Khaki
+  '#dda0dd', // Plum
+  '#98d8c8', // Mint
+  '#f4a460', // Sandy brown
+  '#c9b1ff', // Lavender
+  '#ffb6c1', // Light pink
+];
 
 // Placeholder texture for loading
 const PLACEHOLDER_TEXTURE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
@@ -81,7 +102,8 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
   index,
   isSelected,
   onSelect,
-  totalInStack
+  totalInStack,
+  boxColor
 }) => {
   const meshRef = useRef<THREE.Mesh>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -117,19 +139,19 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
     const time = state.clock.elapsedTime;
 
     if (isSelected) {
-      // Move to center front position with floating effect
-      targetPosition.current.set(0, 0.8 + Math.sin(time * 1.5) * 0.1, 4.5);
-      // Gentle rotation when selected
+      // Move to center front position with floating effect - tilted up to show image
+      targetPosition.current.set(0, 2.5 + Math.sin(time * 1.5) * 0.08, 6);
+      // Tilt the box up to face camera when selected
       targetRotation.current.set(
-        Math.sin(time * 0.8) * 0.05,
-        Math.sin(time * 0.5) * 0.08,
+        -1.2 + Math.sin(time * 0.8) * 0.03, // Tilted up to show front face
+        Math.sin(time * 0.5) * 0.05,
         0
       );
-      targetScale.current = 1.4;
+      targetScale.current = 1.8;
     } else {
-      // Return to shelf position
+      // Return to shelf position - flat on shelf, slightly tilted toward viewer
       targetPosition.current.set(...position);
-      targetRotation.current.set(-0.1, 0, 0);
+      targetRotation.current.set(-0.3, 0, 0);
       targetScale.current = 1;
     }
 
@@ -146,26 +168,27 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
 
     // Hover float effect when not selected
     if (!isSelected && meshRef.current && hovered) {
-      meshRef.current.position.y = Math.sin(time * 3) * 0.08;
-      meshRef.current.position.z = Math.sin(time * 2) * 0.03;
+      meshRef.current.position.y = Math.sin(time * 3) * 0.05;
+      meshRef.current.position.z = Math.sin(time * 2) * 0.02;
     } else if (meshRef.current && !isSelected) {
       meshRef.current.position.y *= 0.9;
       meshRef.current.position.z *= 0.9;
     }
   });
 
-  const boxWidth = 2.5;
-  const boxHeight = 3.2;
-  const boxDepth = 0.3;
+  // Flat puzzle box dimensions (lying flat, stacked)
+  const boxWidth = 2.8;
+  const boxHeight = 0.35; // Flat like real puzzle boxes
+  const boxDepth = 2.2;
 
   return (
-    <group ref={groupRef} position={position} rotation={[-0.1, 0, 0]}>
+    <group ref={groupRef} position={position} rotation={[-0.3, 0, 0]}>
       {/* Glow lights when selected - multiple for dramatic effect */}
       {isSelected && (
         <>
-          <pointLight position={[0, 0, 2]} color="#ffffff" intensity={2.5} distance={8} />
-          <pointLight position={[-1.5, 0, 1]} color="#6366f1" intensity={1} distance={4} />
-          <pointLight position={[1.5, 0, 1]} color="#ec4899" intensity={1} distance={4} />
+          <pointLight position={[0, 1, 1.5]} color="#ffffff" intensity={3} distance={10} />
+          <pointLight position={[-1.5, 0.5, 1]} color="#6366f1" intensity={1.5} distance={5} />
+          <pointLight position={[1.5, 0.5, 1]} color="#ec4899" intensity={1.5} distance={5} />
         </>
       )}
 
@@ -188,13 +211,13 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
         <boxGeometry args={[boxWidth, boxHeight, boxDepth]} />
 
         {/* Right */}
-        <meshStandardMaterial attach="material-0" color="#1a1a1a" roughness={0.9} />
+        <meshStandardMaterial attach="material-0" color={boxColor} roughness={0.6} />
         {/* Left */}
-        <meshStandardMaterial attach="material-1" color="#1a1a1a" roughness={0.9} />
+        <meshStandardMaterial attach="material-1" color={boxColor} roughness={0.6} />
         {/* Top */}
-        <meshStandardMaterial attach="material-2" color="#252525" roughness={0.8} />
+        <meshStandardMaterial attach="material-2" color={boxColor} roughness={0.5} />
         {/* Bottom */}
-        <meshStandardMaterial attach="material-3" color="#0a0a0a" roughness={0.9} />
+        <meshStandardMaterial attach="material-3" color={boxColor} roughness={0.7} />
         {/* Front - The Image */}
         <meshStandardMaterial
           attach="material-4"
@@ -202,17 +225,17 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
           roughness={0.3}
           metalness={0}
           emissive="#ffffff"
-          emissiveIntensity={hovered || isSelected ? 0.4 : 0.2}
+          emissiveIntensity={hovered || isSelected ? 0.5 : 0.3}
           emissiveMap={texture}
         />
         {/* Back */}
-        <meshStandardMaterial attach="material-5" color="#111111" roughness={0.9} />
+        <meshStandardMaterial attach="material-5" color={boxColor} roughness={0.6} />
       </mesh>
 
       {/* Hover indicator */}
       {hovered && !isSelected && (
-        <Html position={[0, boxHeight / 2 + 0.5, 0]} center>
-          <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-sm font-medium whitespace-nowrap border border-white/20 shadow-lg">
+        <Html position={[0, 0.8, boxDepth / 2 + 0.3]} center>
+          <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-lg text-white text-sm font-medium whitespace-nowrap border border-white/30 shadow-lg">
             Click to select
           </div>
         </Html>
@@ -221,49 +244,49 @@ const PuzzleBox: React.FC<PuzzleBoxProps> = ({
   );
 };
 
-// Wooden Shelf Structure
+// Wooden Shelf Structure - warm oak color like the reference
 const WoodenShelf: React.FC<{ y: number; width: number }> = ({ y, width }) => {
   return (
     <group position={[0, y, 0]}>
       {/* Main shelf board */}
       <mesh position={[0, -0.1, 0]}>
-        <boxGeometry args={[width, 0.15, 2.5]} />
-        <meshStandardMaterial color="#2a2015" roughness={0.85} metalness={0.05} />
+        <boxGeometry args={[width, 0.2, 3.5]} />
+        <meshStandardMaterial color="#b8956e" roughness={0.7} metalness={0.02} />
       </mesh>
 
       {/* Front edge detail */}
-      <mesh position={[0, -0.025, 1.15]}>
-        <boxGeometry args={[width, 0.1, 0.2]} />
-        <meshStandardMaterial color="#1f180f" roughness={0.8} />
+      <mesh position={[0, -0.025, 1.65]}>
+        <boxGeometry args={[width, 0.15, 0.2]} />
+        <meshStandardMaterial color="#a07850" roughness={0.65} />
       </mesh>
 
-      {/* Support brackets */}
-      {[-width/2 + 0.3, width/2 - 0.3].map((x, i) => (
-        <mesh key={i} position={[x, -0.35, 0.8]}>
-          <boxGeometry args={[0.15, 0.5, 0.15]} />
-          <meshStandardMaterial color="#1a1a1a" roughness={0.7} metalness={0.3} />
+      {/* Support brackets - darker wood */}
+      {[-width/2 + 0.5, width/2 - 0.5].map((x, i) => (
+        <mesh key={i} position={[x, -0.45, 0.8]}>
+          <boxGeometry args={[0.2, 0.6, 0.2]} />
+          <meshStandardMaterial color="#8b6914" roughness={0.75} metalness={0.1} />
         </mesh>
       ))}
     </group>
   );
 };
 
-// Back Panel
+// Back Panel - warm wood back
 const BackPanel: React.FC<{ width: number; height: number }> = ({ width, height }) => {
   return (
-    <mesh position={[0, height / 2 - 1, -1]}>
-      <boxGeometry args={[width + 0.5, height + 1, 0.1]} />
-      <meshStandardMaterial color="#0a0a0a" roughness={0.95} />
+    <mesh position={[0, height / 2 - 1, -1.5]}>
+      <boxGeometry args={[width + 0.5, height + 1, 0.15]} />
+      <meshStandardMaterial color="#5c4a32" roughness={0.85} />
     </mesh>
   );
 };
 
-// Side Panels
+// Side Panels - matching warm wood
 const SidePanel: React.FC<{ x: number; height: number }> = ({ x, height }) => {
   return (
-    <mesh position={[x, height / 2 - 1, 0.3]}>
-      <boxGeometry args={[0.15, height + 1, 3]} />
-      <meshStandardMaterial color="#1a1410" roughness={0.85} />
+    <mesh position={[x, height / 2 - 1, 0.5]}>
+      <boxGeometry args={[0.2, height + 1, 4]} />
+      <meshStandardMaterial color="#8b7355" roughness={0.75} />
     </mesh>
   );
 };
@@ -277,98 +300,134 @@ const LibraryScene: React.FC<{
 }> = ({ puzzles, selectedId, onSelectPuzzle, onClose }) => {
   const { camera } = useThree();
 
-  // Calculate layout - puzzles stacked on shelves
-  const puzzlesPerShelf = 4;
-  const shelfCount = Math.ceil(puzzles.length / puzzlesPerShelf) || 1;
-  const shelfWidth = 12;
-  const shelfSpacing = 4;
+  // Calculate layout - create stacks of boxes like the reference image
+  // Stack configuration: boxes per stack, stacks per shelf
+  const maxBoxesPerStack = 4;
+  const stacksPerShelf = 3;
+  const shelfWidth = 14;
+  const shelfSpacing = 5;
+
+  // Calculate how many shelves we need
+  const totalStacks = Math.ceil(puzzles.length / maxBoxesPerStack);
+  const shelfCount = Math.ceil(totalStacks / stacksPerShelf) || 1;
 
   // Camera animation for selection
   useFrame((state, delta) => {
-    const targetZ = selectedId ? 8 : 10;
-    const targetY = selectedId ? 1.5 : 2;
+    const targetZ = selectedId ? 9 : 12;
+    const targetY = selectedId ? 2 : 3;
 
     camera.position.z += (targetZ - camera.position.z) * delta * 3;
     camera.position.y += (targetY - camera.position.y) * delta * 3;
   });
 
+  // Calculate positions for stacked boxes - using useMemo to avoid recalculation
+  const boxPositions = useMemo(() => {
+    // Seeded random for consistent positions
+    const seededRandom = (seed: number) => {
+      const x = Math.sin(seed * 12.9898) * 43758.5453;
+      return x - Math.floor(x);
+    };
+
+    return puzzles.map((_, index) => {
+      const stackIndex = Math.floor(index / maxBoxesPerStack);
+      const positionInStack = index % maxBoxesPerStack;
+      const shelfIndex = Math.floor(stackIndex / stacksPerShelf);
+      const stackOnShelf = stackIndex % stacksPerShelf;
+
+      // Horizontal position - spread stacks across the shelf
+      const stackSpacing = shelfWidth / (stacksPerShelf + 1);
+      const xOffset = (seededRandom(index * 7) - 0.5) * 0.4;
+      const x = -shelfWidth / 2 + stackSpacing * (stackOnShelf + 1) + xOffset;
+
+      // Vertical position - stack boxes on top of each other
+      const boxHeight = 0.4; // Flat boxes like puzzle boxes
+      const baseY = shelfIndex * shelfSpacing + 0.25;
+      const y = baseY + positionInStack * (boxHeight + 0.03);
+
+      // Small deterministic Z offset for natural look
+      const z = (seededRandom(index * 13) - 0.5) * 0.3;
+
+      // Small rotation offset for natural stacking
+      const rotationY = (seededRandom(index * 17) - 0.5) * 0.15;
+
+      return { position: [x, y, z] as [number, number, number], stackIndex, rotationY };
+    });
+  }, [puzzles.length, maxBoxesPerStack, stacksPerShelf, shelfWidth, shelfSpacing]);
+
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.8} />
+      {/* Enhanced Lighting for brighter scene */}
+      <ambientLight intensity={1.8} />
+      <hemisphereLight args={['#ffeedd', '#8888aa', 1.2]} />
       <spotLight
-        position={[0, 12, 10]}
-        angle={0.35}
-        penumbra={0.9}
-        intensity={1.8}
+        position={[0, 15, 12]}
+        angle={0.5}
+        penumbra={0.8}
+        intensity={2.5}
         castShadow
         shadow-mapSize={[2048, 2048]}
       />
-      {/* Front fill light to illuminate puzzle faces */}
-      <directionalLight position={[0, 2, 8]} intensity={1.2} color="#ffffff" />
+      {/* Strong front fill light to illuminate puzzle faces */}
+      <directionalLight position={[0, 5, 10]} intensity={2.0} color="#ffffff" />
+      <directionalLight position={[-5, 3, 8]} intensity={1.0} color="#fff5e6" />
+      <directionalLight position={[5, 3, 8]} intensity={1.0} color="#e6f0ff" />
 
-      {/* Accent lights for atmosphere */}
-      <pointLight position={[-8, 4, 5]} intensity={0.6} color="#ff6b35" />
-      <pointLight position={[8, 4, 5]} intensity={0.6} color="#3b82f6" />
-      <pointLight position={[0, -1, 6]} intensity={0.4} color="#8b5cf6" />
+      {/* Soft fill lights from sides */}
+      <pointLight position={[-10, 4, 6]} intensity={1.0} color="#ffd4a3" />
+      <pointLight position={[10, 4, 6]} intensity={1.0} color="#a3d4ff" />
+      <pointLight position={[0, 0, 8]} intensity={0.8} color="#ffffff" />
 
       {/* Dynamic spotlight for selected item */}
       {selectedId && (
         <spotLight
-          position={[0, 6, 8]}
-          target-position={[0, 0.8, 4.5]}
-          angle={0.3}
-          penumbra={0.5}
-          intensity={2}
+          position={[0, 8, 12]}
+          target-position={[0, 2.5, 6]}
+          angle={0.5}
+          penumbra={0.6}
+          intensity={4}
           color="#ffffff"
         />
       )}
 
-      {/* Shelf structure */}
-      <BackPanel width={shelfWidth} height={shelfCount * shelfSpacing + 2} />
-      <SidePanel x={-shelfWidth/2 - 0.1} height={shelfCount * shelfSpacing + 2} />
-      <SidePanel x={shelfWidth/2 + 0.1} height={shelfCount * shelfSpacing + 2} />
+      {/* Shelf structure with warmer wood color */}
+      <BackPanel width={shelfWidth} height={shelfCount * shelfSpacing + 3} />
+      <SidePanel x={-shelfWidth/2 - 0.1} height={shelfCount * shelfSpacing + 3} />
+      <SidePanel x={shelfWidth/2 + 0.1} height={shelfCount * shelfSpacing + 3} />
 
       {/* Shelves */}
       {Array.from({ length: shelfCount + 1 }).map((_, shelfIndex) => (
         <WoodenShelf
           key={shelfIndex}
-          y={shelfIndex * shelfSpacing - 1.5}
+          y={shelfIndex * shelfSpacing - 1}
           width={shelfWidth}
         />
       ))}
 
-      {/* Puzzle boxes */}
+      {/* Puzzle boxes - stacked vertically */}
       <Suspense fallback={null}>
         {puzzles.map((puzzle, index) => {
-          const shelfIndex = Math.floor(index / puzzlesPerShelf);
-          const positionInShelf = index % puzzlesPerShelf;
-          const totalInThisShelf = Math.min(puzzlesPerShelf, puzzles.length - shelfIndex * puzzlesPerShelf);
-
-          // Calculate x position (spread evenly on shelf)
-          const startX = -(totalInThisShelf - 1) * 2.8 / 2;
-          const x = startX + positionInShelf * 2.8;
-          const y = shelfIndex * shelfSpacing + 0.3;
-          const z = 0;
+          const { position, stackIndex } = boxPositions[index];
+          const boxColor = BOX_COLORS[index % BOX_COLORS.length];
 
           return (
             <PuzzleBox
               key={puzzle.id}
               puzzle={puzzle}
-              position={[x, y, z]}
+              position={position}
               index={index}
               isSelected={selectedId === puzzle.id}
               onSelect={() => onSelectPuzzle(puzzle.id)}
-              totalInStack={totalInThisShelf}
+              totalInStack={Math.min(maxBoxesPerStack, puzzles.length - stackIndex * maxBoxesPerStack)}
+              boxColor={boxColor}
             />
           );
         })}
       </Suspense>
 
-      {/* Floor */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.5, 2]}>
-        <planeGeometry args={[20, 15]} />
-        <meshStandardMaterial color="#080808" roughness={0.9} />
+      {/* Floor - warm wood floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 2]}>
+        <planeGeometry args={[25, 18]} />
+        <meshStandardMaterial color="#3d3022" roughness={0.8} />
       </mesh>
 
       {/* Atmospheric dust particles */}
@@ -531,12 +590,12 @@ const Library3DView: React.FC<Library3DViewProps> = ({ history, onSelect, onBack
 
       {/* 3D Canvas */}
       <Canvas
-        camera={{ position: [0, 2, 10], fov: 45 }}
+        camera={{ position: [0, 3, 14], fov: 45 }}
         shadows
         dpr={[1, 2]}
       >
-        <color attach="background" args={['#0a0a0a']} />
-        <fog attach="fog" args={['#0a0a0a', 15, 35]} />
+        <color attach="background" args={['#1a1512']} />
+        <fog attach="fog" args={['#1a1512', 20, 45]} />
 
         <LibraryScene
           puzzles={history}
