@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppState, PuzzleConfig, SavedPuzzle } from './types';
 import UploadView from './components/UploadView';
-import ShelfView from './components/ShelfView';
-import Box3DView from './components/Box3DView';
+import TableBoxView from './components/TableBoxView';
 import GameView from './components/GameView';
 import Library3DView from './components/Library3DView';
 import Footer from './components/Footer';
@@ -22,7 +21,7 @@ const App: React.FC = () => {
     setConfig(newConfig);
     // Save to history immediately when created/started
     savePuzzleToHistory(newConfig.imageUrl);
-    setState(AppState.SHELF);
+    setState(AppState.SHELF); // Go to table box view
   };
 
   const handleOpenLibrary = () => {
@@ -31,12 +30,8 @@ const App: React.FC = () => {
 
   const handleSelectFromLibrary = (newConfig: PuzzleConfig) => {
     setConfig(newConfig);
-    // Move straight to shelf or inspect? Let's go to Shelf for the "experience"
+    // Go to table box view for the opening experience
     setState(AppState.SHELF);
-  };
-
-  const handleSelectFromShelf = () => {
-    setState(AppState.INSPECT);
   };
 
   const handleOpenBox = () => {
@@ -65,17 +60,10 @@ const App: React.FC = () => {
 
       {state === AppState.SHELF && config && (
         <div className="animate-fade-in">
-          <ShelfView 
-            userImageUrl={config.imageUrl} 
-            history={history}
-            onSelect={handleSelectFromShelf} 
+          <TableBoxView
+            imageUrl={config.imageUrl}
+            onOpen={handleOpenBox}
           />
-        </div>
-      )}
-
-      {state === AppState.INSPECT && config && (
-        <div className="animate-fade-in">
-          <Box3DView imageUrl={config.imageUrl} onOpen={handleOpenBox} />
         </div>
       )}
 
