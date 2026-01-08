@@ -390,7 +390,6 @@ const TableScene: React.FC<{
 const TableBoxView: React.FC<TableBoxViewProps> = ({ imageUrl, onOpen }) => {
   const [isBoxOpen, setIsBoxOpen] = useState(false);
   const [piecesRevealed, setPiecesRevealed] = useState(false);
-  const [showContinueButton, setShowContinueButton] = useState(false);
 
   const handleBoxClick = () => {
     if (!isBoxOpen) {
@@ -401,15 +400,11 @@ const TableBoxView: React.FC<TableBoxViewProps> = ({ imageUrl, onOpen }) => {
         setPiecesRevealed(true);
       }, 500);
 
-      // Show continue button after pieces are revealed
+      // Auto-start puzzle after pieces animation completes
       setTimeout(() => {
-        setShowContinueButton(true);
-      }, 1500);
+        onOpen();
+      }, 2000);
     }
-  };
-
-  const handleContinue = () => {
-    onOpen();
   };
 
   return (
@@ -443,29 +438,6 @@ const TableBoxView: React.FC<TableBoxViewProps> = ({ imageUrl, onOpen }) => {
           <p className="text-zinc-400 text-lg">Click the box to open it</p>
         </div>
       )}
-
-      {/* Continue button */}
-      {showContinueButton && (
-        <div className="absolute bottom-8 left-0 right-0 flex justify-center animate-fade-in">
-          <button
-            onClick={handleContinue}
-            className="bg-white text-black px-8 py-4 rounded-xl font-bold text-lg hover:bg-zinc-200 transition-all transform hover:scale-105 shadow-lg shadow-white/20"
-          >
-            START PUZZLE
-          </button>
-        </div>
-      )}
-
-      {/* Animation styles */}
-      <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out forwards;
-        }
-      `}</style>
     </div>
   );
 };
